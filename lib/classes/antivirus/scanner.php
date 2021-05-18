@@ -43,6 +43,9 @@ abstract class scanner {
     /** Scanning result indicating the error. */
     const SCAN_RESULT_ERROR = 2;
 
+    /** Scanner check default threshold in seconds. */
+    const DEFAULT_SCAN_ERROR_THRESHOLD = 1200; // Defaults to 20 minutes.
+
     /** @var stdClass the config for antivirus */
     protected $config;
     /** @var string scanning notice */

@@ -234,6 +234,11 @@ if ($ADMIN->fulltree) {
             get_string('showinsecurepopup', 'quiz'), get_string('configpopup', 'quiz'),
             array('value' => '-', 'adv' => true), null));
 
+    // Browser Security - Force the setting above to be a site-level rule.
+    $quizsettings->add(new admin_setting_configcheckbox('quiz/browsersecuritysiteenforced',
+        get_string('browsersecuritysiteenforced', 'quiz'), get_string('browsersecuritysiteenforced_desc', 'quiz'),
+        '0'));
+
     $quizsettings->add(new admin_setting_configtext('quiz/initialnumfeedbacks',
             get_string('initialnumfeedbacks', 'quiz'), get_string('initialnumfeedbacks_desc', 'quiz'),
             2, PARAM_INT, 5));

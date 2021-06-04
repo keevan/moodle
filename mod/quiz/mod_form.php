@@ -286,10 +286,13 @@ class mod_quiz_mod_form extends moodleform_mod {
             $mform->hideIf('delay2', 'attempts', 'eq', 2);
         }
 
-        // Browser security choices.
-        $mform->addElement('select', 'browsersecurity', get_string('browsersecurity', 'quiz'),
-                quiz_access_manager::get_browser_security_choices());
-        $mform->addHelpButton('browsersecurity', 'browsersecurity', 'quiz');
+        // Browser security choices, visible only if site-level settings are not enforced.
+        $browsersecuritysiteenforced = get_config('quiz', 'browsersecuritysiteenforced');
+        if (empty($browsersecuritysiteenforced)) {
+            $mform->addElement('select', 'browsersecurity', get_string('browsersecurity', 'quiz'),
+                    quiz_access_manager::get_browser_security_choices());
+            $mform->addHelpButton('browsersecurity', 'browsersecurity', 'quiz');
+        }
 
         // Any other rule plugins.
         quiz_access_manager::add_settings_form_fields($this, $mform);

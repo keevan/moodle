@@ -126,6 +126,8 @@ $string['basicideasofquiz'] = 'The basic ideas of quiz-making';
 $string['bestgrade'] = 'Best grade';
 $string['bothattempts'] = 'Show students with and without attempts';
 $string['browsersecurity'] = 'Browser security';
+$string['browsersecuritysiteenforced'] = 'Browser security rule applies globally';
+$string['browsersecuritysiteenforced_desc'] = 'Hides the instance setting and uses the site level setting instead.';
 $string['browsersecurity_help'] = 'If "Full screen pop-up with some JavaScript security" is selected,
 
 * The quiz will only start if the student has a JavaScript-enabled web-browser

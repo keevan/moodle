@@ -53,8 +53,15 @@ class quizaccess_securewindow extends quiz_access_rule_base {
     );
 
     public static function make(quiz $quizobj, $timenow, $canignoretimelimits) {
+        // Check site settings, and use browsersecurity there if isglobal is true, otherwise use instance level setting.
+        $browsersecuritysiteenforced = get_config('quiz', 'browsersecuritysiteenforced');
+        if ($browsersecuritysiteenforced) {
+            $browsersecurity = get_config('quiz', 'browsersecurity');
+        } else {
+            $browsersecurity = $quizobj->get_quiz()->browsersecurity;
+        }
 
-        if ($quizobj->get_quiz()->browsersecurity !== 'securewindow') {
+        if ($browsersecurity !== 'securewindow') {
             return null;
         }
 

@@ -963,6 +963,7 @@ class database_manager {
             'missingcolumns' => true,
             'changedcolumns' => true,
             'missingindexes' => true,
+            'missingforeignkeys' => true,
             'extraindexes' => true
         );
 
@@ -1140,6 +1141,162 @@ class database_manager {
                             $this->remove_index_from_dbindex($dbindexes, $index);
                         }
                     }
+                }
+            }
+
+            // Foreign keys should only be made inside the same file (xml).
+            // Otherwise an index should be created (cross file) in place of a
+            // foreign key.
+            // https://docs.moodle.org/dev/XMLDB_Defining_one_XML_structure#Conventions .
+            if ($options['missingforeignkeys']) {
+
+                // Fetch all the table names in an array (calculates it once, though multi exists checks).
+                $alltablenames = $alltablenames ?? array_map(function($table){
+                    return $table->getName();
+                }, $tables);
+
+                // Fetch all the different foreign key fields name that have
+                // been used. This will ensure anything that matches, should
+                // probably also have a foreign key applied (should cover things
+                // like category, capability, any fields that might not end in
+                // 'id').
+                $allforeignfields = $allforeignfields ?? array_unique(array_reduce($tables, function($acc, $table) {
+                    // Check and return the foreign keys.
+                    if ($keys = $table->getKeys()) {
+                        foreach ($keys as $key) {
+                            switch ($key->getType()) {
+                                case XMLDB_KEY_FOREIGN_UNIQUE:
+                                case XMLDB_KEY_FOREIGN:
+                                    $acc[] = $key->getName();
+                                    break;
+                            }
+                        }
+                    }
+                    return $acc;
+                }, []));
+
+                // Fetch all columns that are not already keys, that have indicators of being
+                // something that should have a foreign key / index (e.g. somethingid), that
+                // isn't already a foreign key. For now, only check ids with
+                // type of 'bigint' since they are generally the type the
+                // foreign keys should be in.
+                $fieldstocheck = [];
+                if ($fields = $table->getFields()) {
+
+                    $fieldsindexed = array_reduce($table->getIndexes(), function($acc, $index){
+                        $acc = array_merge($acc, $index->getFields());
+                        return $acc;
+                    }, []);
+
+                    $fieldswithkeys = array_reduce($table->getKeys(), function($acc, $key){
+                        switch ($key->getType()) {
+                            case XMLDB_KEY_UNIQUE:
+                            case XMLDB_KEY_FOREIGN_UNIQUE:
+                            case XMLDB_KEY_FOREIGN:
+                                $acc = array_merge($acc, $key->getFields());
+                                break;
+                        }
+                        return $acc;
+                    }, []);
+
+                    foreach ($fields as $field) {
+                        // If the field is not of type integer, then skip the
+                        // field. For example we don't need to check foreign
+                        // keys on text/numbers currently.
+                        if ($field->getType() != XMLDB_TYPE_INTEGER) {
+                            continue;
+                        }
+
+                        // Skips if field already has an 'index' since if this
+                        // was the case, it would be more likely intentional.
+                        if (in_array($field->getName(), $fieldsindexed)) {
+                            continue;
+                        }
+
+                        // Skip if already part of an existing foreign key or
+                        // unique key on the table.
+                        if (in_array($field->getName(), $fieldswithkeys)) {
+                            continue;
+                        }
+
+                        // Heuristic checks for possible fieldnames missing indexes/foreign keys.
+                        if (substr($field->getName(), -2) === 'id') {
+                            // Fields that end with 'id'.
+                            $fieldstocheck[] = $field->getName();
+                        } else if (in_array($field->getName(), $allforeignfields)) {
+                            // Fields that are known in other tables to be foreign
+                            // keys, but wasn't a foreign key here.
+                            $fieldstocheck[] = $field->getName();
+                        } // Add further heuristics here.
+                    }
+                }
+
+                // For all fields to check, look for a matching table name
+                // within the fieldname (e.g. find the table `course` in
+                // `myfavourecourseid` and return the match as a
+                // recommendation). Note that this will also match against the
+                // 'favourite' table, so scoring is added to ensure it returns
+                // the most likely match instead, matching table closer
+                // mentioned towards the end of the field name (e.g.
+                // favouriteuserid should reference user, not the favourite
+                // table), but list all the recommendations anyways.
+                $candidates = [];
+                $suffixes = ['ies', 'es', 's']; // Note: Order is important.
+                foreach ($fieldstocheck as $fieldname) {
+                    foreach ($alltablenames as $thistablename) {
+
+                        $thistablenamenounderscores = str_replace('_', '', $thistablename);
+                        $thisfieldnamenounderscores = str_replace('_', '', $fieldname);
+
+                        // For tables containing underscores and does not end in
+                        // suffixes like 'ss', check and strip any pluralization
+                        // suffixes before performing checks on the tablename.
+                        if (strpos($thistablename, '_') !== false && strpos($thistablename, 'ss', -2) === false) {
+                            // Check common tablename suffixes and stripes out the suffix on any matches.
+                            foreach ($suffixes as $suffix) {
+                                $pos = strpos($thistablenamenounderscores, $suffix, - strlen($suffix));
+                                if ($pos !== false) {
+                                    break;
+                                }
+                            }
+                            // If a suffix was detected, strip it from the tablename used in the check.
+                            if (!empty($pos)) {
+                                $thistablenamenounderscores = substr($thistablenamenounderscores, 0, $pos);
+                            }
+                        }
+
+                        // Only adds a 'recommendation' if there is a table that is a likely candidate.
+                        $strpos = strpos($thisfieldnamenounderscores, $thistablenamenounderscores);
+                        if ($strpos !== false) {
+                            // This is just internal scoring to make sure more
+                            // likely matches appear earlier in the output
+                            // message (lower = closer to end of fieldname = more relevant).
+                            // For example: favouritecourseid might match on
+                            // course->id and favourite->id, but the earlier
+                            // should be preferred as it matches closer to the
+                            // end of the fieldname.
+                            $positionfromendoffield = strlen($thisfieldnamenounderscores)
+                                                    - $strpos
+                                                    - strlen($thistablenamenounderscores);
+                            $candidates[$fieldname][$positionfromendoffield] = $thistablename;
+                        }
+
+                    }
+
+                    // Sorting most relevant (lowest score = more relevancy)
+                    // first. Alternatively we could just always return the
+                    // first result instead since most of the time this should
+                    // only reference one table.
+                    if (!empty($candidates[$fieldname]) && count($candidates[$fieldname]) > 1) {
+                        ksort($candidates[$fieldname]);
+                        $candidates[$fieldname] = [reset($candidates[$fieldname])]; // Potentially clearer recommendation.
+                    }
+                }
+
+                // Prepare and format any index/foreign key recommendations.
+                foreach ($candidates as $fieldname => $candidatetables) {
+                    $errors[$tablename][] = "column '$fieldname' is missing an index or a foreign key to table".
+                                            " '".implode("->id' or '", $candidatetables)."->id'";
                 }
             }
 

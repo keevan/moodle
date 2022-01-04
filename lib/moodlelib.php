@@ -1406,61 +1406,53 @@ function html_is_blank($string) {
 function set_config($name, $value, $plugin=null) {
     global $CFG, $DB;
 
+    // Redirect to appropriate handler when value is null.
+    if ($value === null) {
+        return unset_config($name, $plugin);
+    }
+
     if (empty($plugin)) {
-        if (!array_key_exists($name, $CFG->config_php_settings)) {
+        if (!isset($CFG->config_php_settings[$name])) {
             // So it's defined for this invocation at least.
-            if (is_null($value)) {
-                unset($CFG->$name);
-            } else {
-                // Settings from db are always strings.
-                $CFG->$name = (string)$value;
-            }
+            // Settings from db are always strings.
+            $CFG->$name = (string)$value;
         }
 
-        if ($DB->get_field('config', 'name', array('name' => $name))) {
-            if ($value === null) {
-                $DB->delete_records('config', array('name' => $name));
-            } else {
-                $DB->set_field('config', 'value', $value, array('name' => $name));
-            }
-        } else {
-            if ($value !== null) {
-                $config = new stdClass();
-                $config->name  = $name;
-                $config->value = $value;
-                $DB->insert_record('config', $config, false);
-            }
+        $record = $DB->get_record('config', array('name' => $name), 'id, value');
+        if ($record === false) {
+            $config = new stdClass();
+            $config->name  = $name;
+            $config->value = $value;
+            $DB->insert_record('config', $config, false);
             // When setting config during a Behat test (in the CLI script, not in the web browser
             // requests), remember which ones are set so that we can clear them later.
             if (defined('BEHAT_TEST')) {
-                if (!property_exists($CFG, 'behat_cli_added_config')) {
-                    $CFG->behat_cli_added_config = [];
-                }
                 $CFG->behat_cli_added_config[$name] = true;
             }
+        } else if ($invalidatecache = ($record->value !== $value)) {
+            $DB->set_field('config', 'value', $value, array('id' => $record->id));
         }
         if ($name === 'siteidentifier') {
             cache_helper::update_site_identifier($value);
         }
-        cache_helper::invalidate_by_definition('core', 'config', array(), 'core');
+        if ($invalidatecache) {
+            cache_helper::invalidate_by_definition('core', 'config', array(), 'core');
+        }
     } else {
         // Plugin scope.
-        if ($id = $DB->get_field('config_plugins', 'id', array('name' => $name, 'plugin' => $plugin))) {
-            if ($value===null) {
-                $DB->delete_records('config_plugins', array('name' => $name, 'plugin' => $plugin));
-            } else {
-                $DB->set_field('config_plugins', 'value', $value, array('id' => $id));
-            }
-        } else {
-            if ($value !== null) {
-                $config = new stdClass();
-                $config->plugin = $plugin;
-                $config->name   = $name;
-                $config->value  = $value;
-                $DB->insert_record('config_plugins', $config, false);
-            }
+        $record = $DB->get_record('config', array('name' => $name, 'plugin' => $plugin), 'id, value');
+        if ($record === false) {
+            $config = new stdClass();
+            $config->plugin = $plugin;
+            $config->name   = $name;
+            $config->value  = $value;
+            $DB->insert_record('config_plugins', $config, false);
+        } else if ($invalidatecache = ($record->value !== $value)) {
+            $DB->set_field('config_plugins', 'value', $value, array('id' => $record->id));
         }
-        cache_helper::invalidate_by_definition('core', 'config', array(), $plugin);
+        if ($invalidatecache) {
+            cache_helper::invalidate_by_definition('core', 'config', array(), $plugin);
+        }
     }
 
     return true;

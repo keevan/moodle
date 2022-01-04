@@ -1411,48 +1411,59 @@ function set_config($name, $value, $plugin=null) {
         return unset_config($name, $plugin);
     }
 
-    if (empty($plugin)) {
-        if (!isset($CFG->config_php_settings[$name])) {
-            // So it's defined for this invocation at least.
-            // Settings from db are always strings.
-            $CFG->$name = (string)$value;
-        }
-
-        $record = $DB->get_record('config', array('name' => $name), 'id, value');
-        if ($record === false) {
-            $config = new stdClass();
-            $config->name  = $name;
-            $config->value = $value;
-            $DB->insert_record('config', $config, false);
-            // When setting config during a Behat test (in the CLI script, not in the web browser
-            // requests), remember which ones are set so that we can clear them later.
-            if (defined('BEHAT_TEST')) {
-                $CFG->behat_cli_added_config[$name] = true;
-            }
-        } else if ($invalidatecache = ($record->value !== $value)) {
-            $DB->set_field('config', 'value', $value, array('id' => $record->id));
-        }
-        if ($name === 'siteidentifier') {
-            cache_helper::update_site_identifier($value);
-        }
-        if ($invalidatecache) {
-            cache_helper::invalidate_by_definition('core', 'config', array(), 'core');
-        }
+    // Set variables determining conditions and where to store the new config.
+    // Plugin config goes to {config_plugins}, core config goes to {config}.
+    $iscore = empty($plugin);
+    if ($iscore) {
+        // If it's for core config.
+        $table = 'config';
+        $conditions = ['name' => $name];
+        $invalidatecachekey = 'core';
     } else {
-        // Plugin scope.
-        $record = $DB->get_record('config', array('name' => $name, 'plugin' => $plugin), 'id, value');
-        if ($record === false) {
-            $config = new stdClass();
+        // If it's a plugin.
+        $table = 'config_plugins';
+        $conditions = ['name' => $name, 'plugin' => $plugin];
+        $invalidatecachekey = $plugin;
+    }
+
+    // DB handling - checks for existing config, updating or inserting only if necessary.
+    $invalidatecache = true;
+    $inserted = false;
+    $record = $DB->get_record($table, $conditions, 'id, value');
+    if ($record === false) {
+        // Inserts a new config record.
+        $config = new stdClass();
+        $config->name  = $name;
+        $config->value = $value;
+        if (!$iscore) {
             $config->plugin = $plugin;
-            $config->name   = $name;
-            $config->value  = $value;
-            $DB->insert_record('config_plugins', $config, false);
-        } else if ($invalidatecache = ($record->value !== $value)) {
-            $DB->set_field('config_plugins', 'value', $value, array('id' => $record->id));
         }
-        if ($invalidatecache) {
-            cache_helper::invalidate_by_definition('core', 'config', array(), $plugin);
-        }
+        $inserted = $DB->insert_record($table, $config, false);
+    } else if ($invalidatecache = ($record->value !== $value)) {
+        // Record exists - Check and only set new value if it has changed.
+        $DB->set_field($table, 'value', $value, ['id' => $record->id]);
+    }
+
+    if ($iscore && !isset($CFG->config_php_settings[$name])) {
+        // So it's defined for this invocation at least.
+        // Settings from db are always strings.
+        $CFG->$name = (string) $value;
+    }
+
+    // When setting config during a Behat test (in the CLI script, not in the web browser
+    // requests), remember which ones are set so that we can clear them later.
+    if ($iscore && $inserted && defined('BEHAT_TEST')) {
+        $CFG->behat_cli_added_config[$name] = true;
+    }
+
+    // Update siteidentifier cache, if required.
+    if ($iscore && $name === 'siteidentifier') {
+        cache_helper::update_site_identifier($value);
+    }
+
+    // Invalidate cache, if required.
+    if ($invalidatecache) {
+        cache_helper::invalidate_by_definition('core', 'config', array(), $invalidatecachekey);
     }
 
     return true;

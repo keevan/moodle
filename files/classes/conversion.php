@@ -130,11 +130,10 @@ class conversion extends \core\persistent {
         // and either have a valid destination file which still exists, or do not have a destination file at all.
         $sql = "SELECT {$sqlfields}
                 FROM {" . self::TABLE . "} c
-                INNER JOIN {files} conversionsourcefile ON conversionsourcefile.id = c.sourcefileid
+                INNER JOIN (SELECT id FROM {files} WHERE contenthash = :contenthash LIMIT 1) conversionsourcefile ON conversionsourcefile.id = c.sourcefileid
                 LEFT JOIN {files} conversiondestfile ON conversiondestfile.id = c.destfileid
                 WHERE
-                    conversionsourcefile.contenthash = :ccontenthash
-                AND c.targetformat = :cformat
+                    c.targetformat = :cformat
                 AND (
                     c.destfileid IS NULL OR conversiondestfile.id IS NOT NULL
                 )";

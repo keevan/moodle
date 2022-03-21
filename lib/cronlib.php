@@ -137,7 +137,7 @@ function cron_run_scheduled_tasks(int $timenow) {
  * @param   int     $timenow The time this process started.
  * @param   int     $keepalive Keep this function alive for N seconds and poll for new adhoc tasks.
  * @param   bool    $checklimits Should we check limits?
- * @throws \moodle_exception
+ * @throws \Throwable
  */
 function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $checklimits = true) {
     // Allow a restriction on the number of adhoc task runners at once.
@@ -225,6 +225,22 @@ function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $checklimits = true)
         // Release the adhoc task runner lock.
         $adhoclock->release();
     }
+}
+
+/**
+ * Execute a (failed) adhoc task.
+ *
+ * @param   int     $taskid
+ * @param   bool    $force
+ */
+function cron_run_adhoc_task(int $taskid, ?bool $force = false): void {
+    $task = \core\task\manager::get_adhoc_task($taskid);
+    if (!$force && !$task->get_fail_delay() && $task->get_next_run_time() > time()) {
+        throw new \moodle_exception('wontrunfuturescheduledtask');
+    }
+
+    cron_run_inner_adhoc_task($task);
+    cron_set_process_title("Running adhoc task $taskid");
 }
 
 /**

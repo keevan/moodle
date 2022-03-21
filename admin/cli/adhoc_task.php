@@ -32,18 +32,19 @@ require_once("{$CFG->libdir}/cronlib.php");
 list($options, $unrecognized) = cli_get_params(
     [
         'execute' => false,
+        'force' => false,
         'help' => false,
+        'id' => null,
+        'ignorelimits' => false,
         'keep-alive' => 0,
         'showsql' => false,
         'showdebugging' => false,
-        'ignorelimits' => false,
-        'force' => false,
     ], [
-        'h' => 'help',
         'e' => 'execute',
-        'k' => 'keep-alive',
-        'i' => 'ignorelimits',
         'f' => 'force',
+        'h' => 'help',
+        'i' => 'ignorelimits',
+        'k' => 'keep-alive',
     ]
 );
 
@@ -52,21 +53,26 @@ if ($unrecognized) {
     cli_error(get_string('cliunknowoption', 'admin', $unrecognized));
 }
 
+if ($options['id']) {
+    $options['execute'] = true;
+}
 if ($options['help'] or empty($options['execute'])) {
     $help = <<<EOT
 Ad hoc cron tasks.
 
 Options:
- -h, --help                Print out this help
+ -e, --execute             Run all queued adhoc tasks
+     --id                  Run (failed) task with id
+ -f, --force               Run even if cron is disabled
+ -i  --ignorelimits        Ignore task_adhoc_concurrency_limit and task_adhoc_max_runtime limits
+ -k, --keep-alive=N        Keep this script alive for N seconds and poll for new adhoc tasks
      --showsql             Show sql queries before they are executed
      --showdebugging       Show developer level debugging information
- -e, --execute             Run all queued adhoc tasks
- -k, --keep-alive=N        Keep this script alive for N seconds and poll for new adhoc tasks
- -i  --ignorelimits        Ignore task_adhoc_concurrency_limit and task_adhoc_max_runtime limits
- -f, --force               Run even if cron is disabled
+ -h, --help                Print out this help
 
 Example:
 \$sudo -u www-data /usr/bin/php admin/cli/adhoc_task.php --execute
+\$sudo -u www-data /usr/bin/php admin/cli/adhoc_task.php --id=123456
 
 EOT;
 
@@ -82,23 +88,21 @@ if ($options['showsql']) {
     $DB->set_debug(true);
 }
 
-if (CLI_MAINTENANCE) {
-    echo "CLI maintenance mode active, cron execution suspended.\n";
-    exit(1);
-}
+if (!$options['force']) {
+    if (CLI_MAINTENANCE) {
+        echo "CLI maintenance mode active, cron execution suspended.\n";
+        exit(1);
+    }
 
-if (moodle_needs_upgrading()) {
-    echo "Moodle upgrade pending, cron execution suspended.\n";
-    exit(1);
-}
+    if (moodle_needs_upgrading()) {
+        echo "Moodle upgrade pending, cron execution suspended.\n";
+        exit(1);
+    }
 
-if (empty($options['execute'])) {
-    exit(0);
-}
-
-if (!get_config('core', 'cron_enabled') && !$options['force']) {
-    mtrace('Cron is disabled. Use --force to override.');
-    exit(1);
+    if (!get_config('core', 'cron_enabled')) {
+        mtrace('Cron is disabled. Use --force to override.');
+        exit(1);
+    }
 }
 
 if (empty($options['keep-alive'])) {
@@ -112,8 +116,6 @@ if (!empty($CFG->showcrondebugging)) {
     set_debugging(DEBUG_DEVELOPER, true);
 }
 
-$checklimits = empty($options['ignorelimits']);
-
 core_php_time_limit::raise();
 
 // Increase memory limit.
@@ -122,10 +124,18 @@ raise_memory_limit(MEMORY_EXTRA);
 // Emulate normal session - we use admin account by default.
 cron_setup_user();
 
-$humantimenow = date('r', time());
-$keepalive = (int)$options['keep-alive'];
-
 \core\local\cli\shutdown::script_supports_graceful_exit();
+$humantimenow = date('r', time());
+mtrace("Server Time: {$humantimenow}");
 
-mtrace("Server Time: {$humantimenow}\n");
-cron_run_adhoc_tasks(time(), $keepalive, $checklimits);
+if (!empty($options['id'])) {
+    $taskid = (int) $options['id'];
+    cron_run_adhoc_task($taskid);
+} elseif (!empty($options['execute'])) {
+
+    $checklimits = empty($options['ignorelimits']);
+
+    $keepalive = (int)$options['keep-alive'];
+
+    cron_run_adhoc_tasks(time(), $keepalive, $checklimits);
+}

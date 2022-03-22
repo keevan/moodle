@@ -137,9 +137,10 @@ function cron_run_scheduled_tasks(int $timenow) {
  * @param   int     $timenow The time this process started.
  * @param   int     $keepalive Keep this function alive for N seconds and poll for new adhoc tasks.
  * @param   bool    $checklimits Should we check limits?
+ * @param   string  $classname Run only tasks of this class
  * @throws \Throwable
  */
-function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $checklimits = true) {
+function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $checklimits = true, $classname = null) {
     // Allow a restriction on the number of adhoc task runners at once.
     $cronlockfactory = \core\lock\lock_config::get_lock_factory('cron');
     $maxruns = get_config('core', 'task_adhoc_concurrency_limit');
@@ -181,7 +182,7 @@ function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $checklimits = true)
         }
 
         try {
-            $task = \core\task\manager::get_next_adhoc_task(time(), $checklimits);
+            $task = \core\task\manager::get_next_adhoc_task(time(), $checklimits, $classname);
         } catch (\Throwable $e) {
             if ($adhoclock) {
                 // Release the adhoc task runner lock.

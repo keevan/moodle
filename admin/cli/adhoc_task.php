@@ -31,6 +31,7 @@ require_once("{$CFG->libdir}/cronlib.php");
 
 list($options, $unrecognized) = cli_get_params(
     [
+        'classname' => null,
         'execute' => false,
         'force' => false,
         'help' => false,
@@ -40,6 +41,7 @@ list($options, $unrecognized) = cli_get_params(
         'showsql' => false,
         'showdebugging' => false,
     ], [
+        'c' => 'classname',
         'e' => 'execute',
         'f' => 'force',
         'h' => 'help',
@@ -63,6 +65,7 @@ Ad hoc cron tasks.
 Options:
  -e, --execute             Run all queued adhoc tasks
      --id                  Run (failed) task with id
+ -c, --classname           Run tasks with a certain classname (FQN)
  -f, --force               Run even if cron is disabled
  -i  --ignorelimits        Ignore task_adhoc_concurrency_limit and task_adhoc_max_runtime limits
  -k, --keep-alive=N        Keep this script alive for N seconds and poll for new adhoc tasks
@@ -137,5 +140,5 @@ if (!empty($options['id'])) {
 
     $keepalive = (int)$options['keep-alive'];
 
-    cron_run_adhoc_tasks(time(), $keepalive, $checklimits);
+    cron_run_adhoc_tasks(time(), $keepalive, $checklimits, $options['classname']);
 }

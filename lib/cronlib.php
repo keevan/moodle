@@ -134,13 +134,14 @@ function cron_run_scheduled_tasks(int $timenow) {
 /**
  * Execute all queued adhoc tasks, applying necessary concurrency limits and time limits.
  *
- * @param   int     $timenow The time this process started.
- * @param   int     $keepalive Keep this function alive for N seconds and poll for new adhoc tasks.
- * @param   bool    $checklimits Should we check limits?
- * @param   string  $classname Run only tasks of this class
+ * @param   int      $timenow The time this process started.
+ * @param   ?int     $keepalive Keep this function alive for N seconds and poll for new adhoc tasks.
+ * @param   ?int     $number Limit number of tasks to run
+ * @param   ?bool    $checklimits Should we check limits?
+ * @param   ?string  $classname Run only tasks of this class
  * @throws \Throwable
  */
-function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $checklimits = true, $classname = null) {
+function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $number = null, $checklimits = true, $classname = null): void {
     // Allow a restriction on the number of adhoc task runners at once.
     $cronlockfactory = \core\lock\lock_config::get_lock_factory('cron');
     $maxruns = get_config('core', 'task_adhoc_concurrency_limit');
@@ -199,6 +200,9 @@ function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $checklimits = true,
             cron_run_inner_adhoc_task($task);
             cron_set_process_title("Waiting for next adhoc task");
             $taskcount++;
+            if ($number and $taskcount >= $number) {
+                break;
+            }
             unset($task);
         } else {
             $timeleft = $finishtime - time();

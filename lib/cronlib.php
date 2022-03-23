@@ -200,7 +200,7 @@ function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $number = null, $che
             cron_run_inner_adhoc_task($task);
             cron_set_process_title("Waiting for next adhoc task");
             $taskcount++;
-            if ($number and $taskcount >= $number) {
+            if ($number && $taskcount >= $number) {
                 break;
             }
             unset($task);
@@ -257,7 +257,7 @@ function cron_run_failed_adhoc_tasks($classname = null): void {
     global $DB;
 
     foreach ($DB->get_records_sql('SELECT * from {task_adhoc} WHERE faildelay > 0') as $t) {
-        if ($classname && $classname != \core\task\manager::get_canonical_class_name($t->classname)) {
+        if ($classname && $classname !== \core\task\manager::get_canonical_class_name($t->classname)) {
             continue;
         }
 

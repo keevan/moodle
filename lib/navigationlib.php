@@ -3707,6 +3707,12 @@ class navbar extends navigation_node {
             // Now find the active nodes on both the navigation and settings.
             $navigationactivenode = $this->page->navigation->find_active_node();
             $settingsactivenode = $this->page->settingsnav->find_active_node();
+            if ($settingsactivenode && $settingsactivenode->children) {
+                $activechild = $settingsactivenode->search_for_active_node();
+                if ($activechild) {
+                    $settingsactivenode = $activechild;
+                }
+            }
 
             if ($navigationactivenode && $settingsactivenode) {
                 // Parse a combined navigation tree

@@ -233,7 +233,7 @@ function cron_run_adhoc_tasks(int $timenow, $keepalive = 0, $number = null, $che
 }
 
 /**
- * Execute a (failed) adhoc task.
+ * Execute an adhoc task.
  *
  * @param   int     $taskid
  * @param   bool    $force
@@ -246,6 +246,23 @@ function cron_run_adhoc_task(int $taskid, ?bool $force = false): void {
 
     cron_run_inner_adhoc_task($task);
     cron_set_process_title("Running adhoc task $taskid");
+}
+
+/**
+ * Execute all failed adhoc tasks.
+ *
+ * @param   ?string  $classname Run only tasks of this class
+ */
+function cron_run_failed_adhoc_tasks($classname = null): void {
+    global $DB;
+
+    foreach ($DB->get_records_sql('SELECT * from {task_adhoc} WHERE faildelay > 0') as $t) {
+        if ($classname && $classname != \core\task\manager::get_canonical_class_name($t->classname)) {
+            continue;
+        }
+
+        cron_run_adhoc_task($t->id);
+    }
 }
 
 /**

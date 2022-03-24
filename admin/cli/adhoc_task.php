@@ -33,6 +33,7 @@ list($options, $unrecognized) = cli_get_params(
     [
         'classname' => null,
         'execute' => false,
+        'failed' => false,
         'force' => false,
         'help' => false,
         'id' => null,
@@ -62,6 +63,7 @@ Ad hoc cron tasks.
 
 Options:
  -e, --execute             Run all queued adhoc tasks
+     --failed              Run only tasks that failed, ie those with a fail delay
      --id                  Run (failed) task with id
  -c, --classname           Run tasks with a certain classname (FQN)
  -f, --force               Run even if cron is disabled
@@ -137,6 +139,13 @@ cron_setup_user();
 $humantimenow = date('r', time());
 mtrace("Server Time: {$humantimenow}");
 
+$classname = $options['classname'];
+if (!empty($classname)) {
+    if (strpos($classname, '\\') !== 0) {
+        $classname = '\\' . $classname;
+    }
+}
+
 // Run a single adhoc task only, if requested.
 if (!empty($options['id'])) {
     $taskid = (int) $options['id'];
@@ -144,9 +153,14 @@ if (!empty($options['id'])) {
     exit(0);
 }
 
+// Run all failed tasks.
+if (!empty($options['failed'])) {
+    cron_run_failed_adhoc_tasks($classname);
+    exit(0);
+}
+
 // Examine params and determine if we should run.
 $execute = (bool) $options['execute'];
-$classname = $options['classname'];
 $keepalive = empty($options['keep-alive']) ? 0 : (int) $options['keep-alive'];
 $taskslimit = empty($options['taskslimit']) ? null : (int) $options['taskslimit'];
 $checklimits = empty($options['ignorelimits']);

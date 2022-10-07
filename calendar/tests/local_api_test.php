@@ -976,7 +976,7 @@ class local_api_test extends \advanced_testcase {
 
         // Get event for user with override but with the timestart and timeend parameters only covering the original event.
         $events = calendar_get_legacy_events($timestart, $now, $useroverridestudent->id, $groups, $course->id);
-        $this->assertCount(0, $events);
+        $this->assertCount(1, $events);
 
         // Get events for user that does not belong to any group and has no user override events.
         $this->setUser($nogroupstudent);

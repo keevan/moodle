@@ -144,8 +144,8 @@ class tool_task_renderer extends plugin_renderer_base {
      * This function will render a table with all the adhoc tasks for the class.
      *
      * @param string $classname
-     * @param adhoc_task[] $tasks - list of all adhoc tasks.
-     * @param array $params
+     * @param array $tasks - list of all adhoc tasks.
+     * @param array|null $params
      * @return string HTML to output.
      */
     public function adhoc_tasks_class_table(string $classname, array $tasks, ?array $params = []): string {

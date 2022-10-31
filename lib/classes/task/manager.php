@@ -477,9 +477,9 @@ class manager {
      * This function load the adhoc tasks for a given classname.
      *
      * @param string $classname
-     * @param bool $failedonly
-     * @param bool $skiprunning do not return tasks that are in the running state
-     * @return adhoc_task[]
+     * @param bool|null $failedonly
+     * @param bool|null $skiprunning do not return tasks that are in the running state
+     * @return array
      */
     public static function get_adhoc_tasks(string $classname, ?bool $failedonly = false, ?bool $skiprunning = false): array {
         global $DB;
@@ -709,12 +709,12 @@ class manager {
      * {@link adhoc_task_failed} or {@link adhoc_task_complete} to release the lock and reschedule the task.
      *
      * @param int $timestart
-     * @param ?bool $checklimits Should we check limits?
-     * @param ?string $classname Return only task of this class
-     * @return ?\core\task\adhoc_task or null if not found
+     * @param bool $checklimits Should we check limits?
+     * @param string|null $classname Return only task of this class
+     * @return \core\task\adhoc_task|null or null if not found
      * @throws \moodle_exception
      */
-    public static function get_next_adhoc_task($timestart, $checklimits = true, $classname = null): ?adhoc_task {
+    public static function get_next_adhoc_task(int $timestart, bool $checklimits = true, ?string $classname = null): ?adhoc_task {
         global $DB;
 
         $concurrencylimit = get_config('core', 'task_adhoc_concurrency_limit');
@@ -947,7 +947,7 @@ class manager {
      * {@see ::adhoc_task_failed} or {@see ::adhoc_task_complete} to release the lock and reschedule the task.
      *
      * @param int $taskid
-     * @return ?adhoc_task or null if cannot get a lock
+     * @return adhoc_task|null or null if cannot get a lock
      * @throws \moodle_exception
      */
     public static function get_adhoc_task(int $taskid): ?adhoc_task {
@@ -1534,8 +1534,8 @@ class manager {
     /**
      * Executes ad hoc tasks from web invocation using PHP CLI.
      *
-     * @param bool   $failedonly
-     * @param string $classname  Task class to execute via CLI.
+     * @param bool|null   $failedonly
+     * @param string|null $classname  Task class to execute via CLI.
      * @throws \moodle_exception
      */
     public static function run_all_adhoc_from_cli(?bool $failedonly = false, ?string $classname = null) {

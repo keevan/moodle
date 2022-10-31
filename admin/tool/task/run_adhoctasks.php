@@ -51,10 +51,6 @@ $failedonly = optional_param('failedonly', false, PARAM_BOOL);
 $taskid = optional_param('id', null, PARAM_INT);
 $confirmed = optional_param('confirm', 0, PARAM_INT);
 
-// Basic security checks.
-require_admin();
-$context = context_system::instance();
-
 if (!\core\task\manager::is_runnable()) {
     $redirecturl = new \moodle_url('/admin/settings.php', ['section' => 'systempaths']);
     throw new moodle_exception('cannotfindthepathtothecli', 'tool_task', $redirecturl->out());
@@ -91,7 +87,7 @@ if ($taskid) {
 }
 
 // Start output.
-
+$context = context_system::instance();
 $PAGE->set_context($context);
 $PAGE->set_heading($SITE->fullname);
 $PAGE->set_title($classname);

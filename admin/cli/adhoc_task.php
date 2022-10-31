@@ -155,7 +155,7 @@ if (!empty($options['id'])) {
 
 // Run all failed tasks.
 if (!empty($options['failed'])) {
-    cron_run_failed_adhoc_tasks($classname);
+    cron_run_failed_adhoc_tasks($classname, $options['force']);
     exit(0);
 }
 

@@ -477,11 +477,11 @@ class manager {
      * This function load the adhoc tasks for a given classname.
      *
      * @param string $classname
-     * @param bool|null $failedonly
-     * @param bool|null $skiprunning do not return tasks that are in the running state
+     * @param bool $failedonly
+     * @param bool $skiprunning do not return tasks that are in the running state
      * @return array
      */
-    public static function get_adhoc_tasks(string $classname, ?bool $failedonly = false, ?bool $skiprunning = false): array {
+    public static function get_adhoc_tasks(string $classname, bool $failedonly = false, bool $skiprunning = false): array {
         global $DB;
 
         $conds[] = 'classname = ?';

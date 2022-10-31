@@ -175,4 +175,4 @@ if (!$execute) {
     exit(0);
 }
 
-cron_run_adhoc_tasks(time(), $keepalive, $taskslimit, $checklimits, $classname);
+cron_run_adhoc_tasks(time(), $keepalive, $checklimits, $taskslimit, $classname);

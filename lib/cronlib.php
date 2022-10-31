@@ -136,17 +136,17 @@ function cron_run_scheduled_tasks(int $timenow) {
  *
  * @param  int      $timenow The time this process started.
  * @param  int      $keepalive Keep this function alive for N seconds and poll for new adhoc tasks.
- * @param  int|null $number Limit number of tasks to run
  * @param  bool     $checklimits Should we check limits?
- * @param  string   $classname Run only tasks of this class
+ * @param  int|null $number Limit number of tasks to run
+ * @param  string|null   $classname Run only tasks of this class
  * @throws \Throwable
  */
 function cron_run_adhoc_tasks(
     int $timenow,
     int $keepalive = 0,
-    ?int $number = null,
     bool $checklimits = true,
-    $classname = null
+    ?int $number = null,
+    ?string $classname = null
 ): void {
     // Allow a restriction on the number of adhoc task runners at once.
     $cronlockfactory = \core\lock\lock_config::get_lock_factory('cron');
